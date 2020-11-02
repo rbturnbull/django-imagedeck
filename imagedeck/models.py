@@ -11,7 +11,7 @@ def get_setting(key, default):
     return default
 
 IMAGEDECK_THUMBNAIL_WIDTH = get_setting('IMAGEDECK_THUMBNAIL_WIDTH', 250)
-IMAGEDECK_THUMBNAIL_HEIGHT = get_setting('IMAGEDECK_THUMBNAIL_HEIGHT', IMAGEDECK_THUMBNAIL_WIDTH)
+IMAGEDECK_THUMBNAIL_HEIGHT = get_setting('IMAGEDECK_THUMBNAIL_HEIGHT', None)
 IMAGEDECK_THUMBNAIL_QUALITY = get_setting('IMAGEDECK_THUMBNAIL_QUALITY', 60)
 IMAGEDECK_THUMBNAIL_FORMAT = get_setting('IMAGEDECK_THUMBNAIL_FORMAT', "JPEG")
 IMAGEDECK_DEFAULT_WIDTH = get_setting('IMAGEDECK_DEFAULT_WIDTH', 250)
@@ -44,6 +44,17 @@ class DeckBase(PolymorphicModel):
     def __str__(self):
         return self.name
 
+    def primary_image(self):
+        return self.images.order_by( '-deckmembership__primary' ).first()
+
+    def images_ordered(self):
+        """
+        Returns the images in order.
+
+        NB. This shouldn't be necessary. It should work from the ordering field on the DeckMembership class.
+        """
+        return self.images.order_by( 'deckmembership__rank' )
+
 
 class Deck(DeckBase):
     pass
@@ -71,7 +82,21 @@ class DeckImageBase(PolymorphicModel):
         return None
 
     def thumbnail(self):
-        """ Returns a URL to a fullsize version of this image. """
+        """ Returns a URL to a thumbnail of this image. """
+
+        # Try to keep aspect ratio
+        width = IMAGEDECK_THUMBNAIL_WIDTH
+        height = IMAGEDECK_THUMBNAIL_HEIGHT
+
+        if not width and not height:
+            width = 250
+
+        if not height:
+            height = width/self.get_width() * self.get_height()
+
+        if not width:
+            width = height/self.get_height() * self.get_width()
+
         return self.url(width=IMAGEDECK_THUMBNAIL_WIDTH, height=IMAGEDECK_THUMBNAIL_HEIGHT)
 
     def get_width(self):
@@ -196,6 +221,7 @@ class DeckMembership(models.Model):
     deck = models.ForeignKey(DeckBase, on_delete=models.CASCADE)
     image = models.ForeignKey(DeckImageBase, on_delete=models.CASCADE)
     rank = models.PositiveIntegerField( default=0, help_text="The rank of the image in the ordering of the deck.")
+    primary = models.BooleanField(default=False, help_text="Whether or not this image should be conisdered the primary image for the deck.")
 
     class Meta:
-        ordering = ('rank', 'deck')
+        ordering = ['rank',]
