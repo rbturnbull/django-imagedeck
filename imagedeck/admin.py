@@ -61,3 +61,7 @@ class DeckImageBaseParentAdmin(PolymorphicParentModelAdmin):
     base_model = DeckImageBase  # Optional, explicitly set here.
     child_models = (DeckImage, DeckImageIIIF, DeckImageExternal)
     list_filter = (PolymorphicChildModelFilter,)  # This is optional.
+
+@admin.register(DeckLicence)
+class DeckLicenceAdmin(admin.ModelAdmin):
+    pass
