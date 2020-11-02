@@ -1,0 +1,2 @@
+export DJANGO_SETTINGS_MODULE=tests.test_settings
+django-admin makemigrations
