@@ -1,27 +1,12 @@
 from django.db import models
 from polymorphic.models import PolymorphicModel
-from django.conf import settings
 from imagekit.models import ImageSpecField
 from imagekit.processors import Thumbnail
-
-
-def get_setting(key, default):
-    if hasattr(settings, key):
-        return getattr(settings, key)
-    return default
-
-IMAGEDECK_THUMBNAIL_WIDTH = get_setting('IMAGEDECK_THUMBNAIL_WIDTH', 250)
-IMAGEDECK_THUMBNAIL_HEIGHT = get_setting('IMAGEDECK_THUMBNAIL_HEIGHT', None)
-IMAGEDECK_THUMBNAIL_QUALITY = get_setting('IMAGEDECK_THUMBNAIL_QUALITY', 60)
-IMAGEDECK_THUMBNAIL_FORMAT = get_setting('IMAGEDECK_THUMBNAIL_FORMAT', "JPEG")
-IMAGEDECK_DEFAULT_WIDTH = get_setting('IMAGEDECK_DEFAULT_WIDTH', 250)
-IMAGEDECK_DEFAULT_HEIGHT = get_setting('IMAGEDECK_DEFAULT_HEIGHT', 250)
-
-
-
 from PIL import Image
 import requests
 from io import BytesIO
+
+from . import settings as imagedeck_settings
 
 def image_from_url(url):
     response = requests.get(url)
@@ -85,8 +70,8 @@ class DeckImageBase(PolymorphicModel):
         """ Returns a URL to a thumbnail of this image. """
 
         # Try to keep aspect ratio
-        width = IMAGEDECK_THUMBNAIL_WIDTH
-        height = IMAGEDECK_THUMBNAIL_HEIGHT
+        width = imagedeck_settings.IMAGEDECK_THUMBNAIL_WIDTH
+        height = imagedeck_settings.IMAGEDECK_THUMBNAIL_HEIGHT
 
         if not width and not height:
             width = 250
@@ -97,13 +82,13 @@ class DeckImageBase(PolymorphicModel):
         if not width:
             width = height/self.get_height() * self.get_width()
 
-        return self.url(width=IMAGEDECK_THUMBNAIL_WIDTH, height=IMAGEDECK_THUMBNAIL_HEIGHT)
+        return self.url(width=imagedeck_settings.IMAGEDECK_THUMBNAIL_WIDTH, height=imagedeck_settings.IMAGEDECK_THUMBNAIL_HEIGHT)
 
     def get_width(self):
-        return IMAGEDECK_DEFAULT_WIDTH
+        return imagedeck_settings.IMAGEDECK_DEFAULT_WIDTH
 
     def get_height(self):
-        return IMAGEDECK_DEFAULT_HEIGHT
+        return imagedeck_settings.IMAGEDECK_DEFAULT_HEIGHT
 
     def get_caption(self):
         components = []
@@ -121,9 +106,9 @@ class DeckImage(DeckImageBase):
     image = models.ImageField()
     thumbnail_generator = ImageSpecField(
         source='image', 
-        processors=[Thumbnail(IMAGEDECK_THUMBNAIL_WIDTH, IMAGEDECK_THUMBNAIL_HEIGHT)], 
-        format=IMAGEDECK_THUMBNAIL_FORMAT, 
-        options={'quality': IMAGEDECK_THUMBNAIL_QUALITY}
+        processors=[Thumbnail(imagedeck_settings.IMAGEDECK_THUMBNAIL_WIDTH, imagedeck_settings.IMAGEDECK_THUMBNAIL_HEIGHT)], 
+        format=imagedeck_settings.IMAGEDECK_THUMBNAIL_FORMAT, 
+        options={'quality': imagedeck_settings.IMAGEDECK_THUMBNAIL_QUALITY}
     )
 
     def __str__(self):
@@ -163,12 +148,12 @@ class DeckImageExternal(DeckImageBase):
         self.set_dimensions()
         if self.width:
             return self.width
-        return IMAGEDECK_DEFAULT_WIDTH
+        return imagedeck_settings.IMAGEDECK_DEFAULT_WIDTH
 
     def get_height(self):
         if self.height:
             return self.height
-        return IMAGEDECK_DEFAULT_HEIGHT
+        return imagedeck_settings.IMAGEDECK_DEFAULT_HEIGHT
 
     def set_dimensions(self):
         img = image_from_url(self.url())
@@ -204,18 +189,19 @@ class DeckImageIIIF(DeckImageBase):
         self.set_dimensions()
         if self.width:
             return self.width
-        return IMAGEDECK_DEFAULT_WIDTH
+        return imagedeck_settings.IMAGEDECK_DEFAULT_WIDTH
 
     def get_height(self):
         if self.height:
             return self.height
-        return IMAGEDECK_DEFAULT_HEIGHT
+        return imagedeck_settings.IMAGEDECK_DEFAULT_HEIGHT
 
     def set_dimensions(self):
         img = image_from_url(self.url())
         self.width = img.width
         self.height = img.height
         self.save()
+
 
 class DeckMembership(models.Model):
     deck = models.ForeignKey(DeckBase, on_delete=models.CASCADE)

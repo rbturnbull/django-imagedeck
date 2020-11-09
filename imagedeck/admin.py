@@ -9,6 +9,10 @@ class DeckMembershipInline(SortableInlineAdminMixin, admin.TabularInline):
     extra = 0
 
 
+class DeckMembershipNonSortableInline(admin.TabularInline):
+    model = DeckMembership
+    extra = 0
+
 class DeckBaseChildAdmin(PolymorphicChildModelAdmin):
     """ Base admin class for all child models """
     base_model = DeckBase
@@ -38,6 +42,7 @@ class DeckImageBaseChildAdmin(PolymorphicChildModelAdmin):
     """ Base admin class for all child models """
     base_model = DeckImageBase
     show_in_index = True  # makes child model admin visible in main admin site
+    inlines = (DeckMembershipNonSortableInline,)
 
 
 @admin.register(DeckImage)
