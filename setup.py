@@ -6,6 +6,7 @@ requirements = [
     "django-polymorphic>=3.0.0",
     "django-filer>=2.0.2",
     "requests>=2.24.0",
+    "django-admin-sortable2>=0.7.7",
 ]
 
 setup(

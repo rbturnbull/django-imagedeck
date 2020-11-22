@@ -1,12 +1,78 @@
+import re
 from django.db import models
+from django.db.models.signals import post_save
+from django.db.models import Max
+from django.dispatch import receiver
 from polymorphic.models import PolymorphicModel
+from django.core.files import File as DjangoFile
+
+from filer.models import Image as FilerImage
+from filer.models import File as FilerFile
+from filer.models import Folder
+
 from imagekit.models import ImageSpecField
 from imagekit.processors import Thumbnail
 from PIL import Image
 import requests
 from io import BytesIO
+from django.contrib.auth import get_user_model
+from pathlib import Path
+import glob
+from filer.settings import FILER_IS_PUBLIC_DEFAULT
 
 from . import settings as imagedeck_settings
+
+
+def create_filer_folder( destination, owner=None ):
+    """ Recursively creates a folder structure in django-filer. """
+    # Get owner if it is just a string
+    if owner and type(owner) == str:
+        owner = get_user_model().objects.get(username=owner)
+
+    # Get destination folder
+    dest_path = Path(destination)
+    folder = None
+    for folder_name in dest_path.parts:
+        folder, created = Folder.objects.update_or_create( name=folder_name, parent=folder )
+        if created and owner:
+            folder.owner = owner
+            folder.save()
+    return folder
+
+def import_django_file(file_obj, folder, owner=None):
+    """
+    Create a File or an Image into the given folder
+
+    Adapted from filer.management.commands.import_files
+    """    
+    try:
+        path = Path(file_obj.name)
+        iext = path.suffix.lower()
+    except Exception as err:  # noqa
+        # print("exception", err)
+        iext = ''
+
+    if iext in ['.jpg', '.jpeg', '.png', '.gif']:
+        obj, created = FilerImage.objects.get_or_create(
+            original_filename=file_obj.name,
+            file=file_obj,
+            folder=folder,
+            owner=owner,
+            is_public=FILER_IS_PUBLIC_DEFAULT)
+    else:
+        obj, created = FilerFile.objects.get_or_create(
+            original_filename=file_obj.name,
+            file=file_obj,
+            owner=owner,
+            folder=folder,
+            is_public=FILER_IS_PUBLIC_DEFAULT)
+    return obj
+
+def import_file(file_path, folder):
+    if type(file_path) == str:
+        file_path = Path(file_path)
+    dj_file = DjangoFile(open(file_path, mode='rb'), name=file_path.name)    
+    return import_django_file( dj_file, folder )
 
 def image_from_url(url):
     response = requests.get(url)
@@ -40,6 +106,39 @@ class DeckBase(PolymorphicModel):
         """
         return self.images.order_by( 'deckmembership__rank' )
 
+    def max_rank(self):
+        """ Returns the highest rank of a membership in this deck. """
+        self.deckmembership_set.aggregate(Max('rank'))['rank__max']
+
+    def add_image(self, image, rank=None):
+        if rank is None:
+            rank = self.max_rank() + 1
+
+        DeckMembership.objects.update_or_create( deck=self, image=image, rank=rank )
+
+    @classmethod
+    def import_glob( cls, destination, pattern, deck_name="", owner=None, rank_regex="(\d+)" ):
+        folder = create_filer_folder(destination, owner=owner)
+        
+        if not deck_name:
+            deck_name = str(folder)
+        
+        deck, _ = cls.objects.update_or_create( name=deck_name )
+
+        for filename in glob.glob(pattern):
+            print(f'Adding {filename}')
+
+            # Create image
+            file = import_file( filename, folder )
+            if type(file) == FilerImage:
+                # Get rank
+                integer_matches = re.findall(rank_regex, filename)
+                rank = int(integer_matches[-1]) if integer_matches else None
+
+                # Add to deck
+                deck.add_image( file.deckimagefiler, rank=rank )
+
+        return deck
 
 class Deck(DeckBase):
     pass
@@ -129,6 +228,24 @@ class DeckImage(DeckImageBase):
         return self.image.height
 
 
+class DeckImageFiler(DeckImageBase):
+    filer_image = models.OneToOneField(FilerImage, on_delete=models.CASCADE, related_name="deckimagefiler")
+
+    def __str__(self):
+        return str(self.filer_image)
+
+    def get_width(self):
+        return self.filer_image.width()
+
+    def get_height(self):
+        return self.filer_image.height()
+
+
+@receiver(post_save, sender=FilerImage)
+def create_or_update_user_profile(sender, instance, created, **kwargs):
+    if created:
+        DeckImageFiler.objects.create(filer_image=instance)
+    instance.deckimagefiler.save()
 
 
 class DeckImageExternal(DeckImageBase):

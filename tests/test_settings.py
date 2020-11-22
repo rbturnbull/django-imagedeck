@@ -6,6 +6,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = 'akfjnakfcjaldunfkhaldfhalshf'
 INSTALLED_APPS = [
     "django.contrib.contenttypes",    
+    "django.contrib.auth",
+
+    'easy_thumbnails',
+    'filer',
+    'mptt',
     "imagedeck",
     "tests",
 ]
