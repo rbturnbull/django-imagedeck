@@ -1,4 +1,5 @@
 import re
+import os
 from django.db import models
 from django.db.models.signals import post_save
 from django.db.models import Max
@@ -9,6 +10,7 @@ from django.core.files import File as DjangoFile
 from filer.models import Image as FilerImage
 from filer.models import File as FilerFile
 from filer.models import Folder
+from filer.settings import FILER_IS_PUBLIC_DEFAULT
 
 from imagekit.models import ImageSpecField
 from imagekit.processors import Thumbnail
@@ -18,16 +20,18 @@ from io import BytesIO
 from django.contrib.auth import get_user_model
 from pathlib import Path
 import glob
-from filer.settings import FILER_IS_PUBLIC_DEFAULT
 
 from . import settings as imagedeck_settings
 
+def check_owner(owner):
+    if owner and type(owner) == str:
+        owner = get_user_model().objects.get(username=owner)
+    return owner
 
 def create_filer_folder( destination, owner=None ):
     """ Recursively creates a folder structure in django-filer. """
     # Get owner if it is just a string
-    if owner and type(owner) == str:
-        owner = get_user_model().objects.get(username=owner)
+    owner = check_owner(owner)
 
     # Get destination folder
     dest_path = Path(destination)
@@ -52,6 +56,9 @@ def import_django_file(file_obj, folder, owner=None):
         # print("exception", err)
         iext = ''
 
+    # Get owner if it is just a string
+    owner = check_owner(owner)
+
     if iext in ['.jpg', '.jpeg', '.png', '.gif']:
         obj, created = FilerImage.objects.get_or_create(
             original_filename=file_obj.name,
@@ -68,11 +75,13 @@ def import_django_file(file_obj, folder, owner=None):
             is_public=FILER_IS_PUBLIC_DEFAULT)
     return obj
 
-def import_file(file_path, folder):
+def import_file(file_path, folder, owner=None):
+    """ Imports a file from a path into a folder in Django Filer. """
     if type(file_path) == str:
         file_path = Path(file_path)
     dj_file = DjangoFile(open(file_path, mode='rb'), name=file_path.name)    
-    return import_django_file( dj_file, folder )
+    return import_django_file( dj_file, folder, owner )
+
 
 def image_from_url(url):
     response = requests.get(url)
@@ -106,9 +115,29 @@ class DeckBase(PolymorphicModel):
         """
         return self.images.order_by( 'deckmembership__rank' )
 
+    def __len__(self):
+        return self.images.count()
+    
+    def __getitem__(self, i):
+        return self.images_ordered()[i]
+
     def max_rank(self):
         """ Returns the highest rank of a membership in this deck. """
-        self.deckmembership_set.aggregate(Max('rank'))['rank__max']
+        if self.deckmembership_set.count() == 0:
+            return 0
+        return self.deckmembership_set.aggregate(Max('rank'))['rank__max']
+
+    def images_before(self, image):
+        membership = image.deckmembership_set.filter(deck=self)
+        if not membership:
+            return None
+        return self.images.filter(deckmembership__rank__lt=membership.rank).order_by( 'deckmembership__rank' )
+
+    def images_after(self, image):
+        membership = image.deckmembership_set.filter(deck=self)
+        if not membership:
+            return None
+        return self.images.filter(deckmembership__rank__gt=membership.rank).order_by( 'deckmembership__rank' )
 
     def add_image(self, image, rank=None):
         if rank is None:
@@ -116,32 +145,75 @@ class DeckBase(PolymorphicModel):
 
         DeckMembership.objects.update_or_create( deck=self, image=image, rank=rank )
 
+    def import_file(self, filename, folder, owner, rank_regex):
+        # Create image
+        file = import_file( filename, folder, owner=owner )
+        if type(file) == FilerImage:
+            # Get rank
+            integer_matches = re.findall(rank_regex, str(filename) )
+            rank = int(integer_matches[-1]) if integer_matches else None
+
+            # Add to deck
+            self.add_image( file.deckimagefiler, rank=rank )
+        return file
+
+    @classmethod
+    def combine( cls, new_deck, decks_to_combine ):
+        images = []
+        for deck_to_combine in decks_to_combine:
+            if type(deck_to_combine) == str:
+                deck_to_combine = Deck.objects.get(name=deck_to_combine)
+            images += list(deck_to_combine.images_ordered())
+        
+        if type(new_deck) == str:
+            new_deck, _ = Deck.objects.update_or_create( name=new_deck )
+        
+        for image in images:
+            new_deck.add_image( image )
+
+        return new_deck
+
     @classmethod
     def import_glob( cls, destination, pattern, deck_name="", owner=None, rank_regex="(\d+)" ):
+        """ Import files using a glob pattern. """
         folder = create_filer_folder(destination, owner=owner)
         
         if not deck_name:
             deck_name = str(folder)
         
-        deck, _ = cls.objects.update_or_create( name=deck_name )
+        deck, _ = Deck.objects.update_or_create( name=deck_name )
+        deck.save()
 
         for filename in glob.glob(pattern):
             print(f'Adding {filename}')
-
-            # Create image
-            file = import_file( filename, folder )
-            if type(file) == FilerImage:
-                # Get rank
-                integer_matches = re.findall(rank_regex, filename)
-                rank = int(integer_matches[-1]) if integer_matches else None
-
-                # Add to deck
-                deck.add_image( file.deckimagefiler, rank=rank )
+            deck.import_file( filename, folder, owner, rank_regex )
 
         return deck
 
+
 class Deck(DeckBase):
-    pass
+    
+    @classmethod
+    def import_regex( cls, destination, pattern, source_dir=".", deck_name="", owner=None, rank_regex="(\d+)" ):
+        """ Import files using a regex pattern. """
+        folder = create_filer_folder(destination, owner=owner)
+        
+        if not deck_name:
+            deck_name = str(folder)
+        
+        deck, _ = Deck.objects.update_or_create( name=deck_name )
+        deck.save()
+
+        if type(source_dir) == str:
+            source_dir = Path(source_dir)
+
+        for filename in os.listdir(source_dir):
+            if re.match(pattern, filename):
+                print(f'Adding {filename}')
+                
+                deck.import_file( source_dir/filename, folder, owner, rank_regex )
+
+        return deck
 
 
 class DeckGallica(DeckBase):
@@ -326,5 +398,16 @@ class DeckMembership(models.Model):
     rank = models.PositiveIntegerField( default=0, help_text="The rank of the image in the ordering of the deck.")
     primary = models.BooleanField(default=False, help_text="Whether or not this image should be conisdered the primary image for the deck.")
 
+    def __str__(self):
+        return f"{self.deck}, {self.image}, {self.rank}"
+
     class Meta:
         ordering = ['rank',]
+
+    def index(self):
+        """ 
+        Returns the index of this image in the deck. 
+        
+        TODO: check if this is this always the same as rank-1?
+        """
+        return DeckMembership.objects.filter(deck=self.deck, rank__lt=self.rank).count()

@@ -9,12 +9,12 @@ from .models import *
 class DeckMembershipInline(SortableInlineAdminMixin, admin.TabularInline):
     model = DeckMembership
     extra = 0
-
+    raw_id_fields = ('image',)
 
 class DeckMembershipNonSortableInline(admin.TabularInline):
     model = DeckMembership
     extra = 0
-
+    raw_id_fields = ('image',)
 
 class DeckBaseChildAdmin(PolymorphicChildModelAdmin):
     """ Base admin class for all child models """
