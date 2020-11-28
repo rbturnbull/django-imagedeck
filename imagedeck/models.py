@@ -307,11 +307,13 @@ class DeckImageFiler(DeckImageBase):
         return str(self.filer_image)
 
     def get_width(self):
-        return self.filer_image.width()
+        return self.filer_image.width
 
     def get_height(self):
-        return self.filer_image.height()
+        return self.filer_image.height
 
+    def thumbnail(self):
+        return self.filer_image.thumbnail
 
 @receiver(post_save, sender=FilerImage)
 def create_or_update_user_profile(sender, instance, created, **kwargs):
