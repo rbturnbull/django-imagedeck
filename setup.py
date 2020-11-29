@@ -7,6 +7,7 @@ requirements = [
     "django-filer>=2.0.2",
     "requests>=2.24.0",
     "django-admin-sortable2>=0.7.6",
+    "easy-thumbnails",
 ]
 
 setup(
