@@ -84,9 +84,11 @@ def import_file(file_path, folder, owner=None):
 
 
 def image_from_url(url):
-    response = requests.get(url)
-    return Image.open(BytesIO(response.content))
-
+    try:
+        response = requests.get(url)
+        return Image.open(BytesIO(response.content))
+    except:
+        return None
 
 class DeckLicence(models.Model):
     name = models.CharField(max_length=255)
@@ -315,6 +317,7 @@ class DeckImageFiler(DeckImageBase):
     def thumbnail(self):
         return self.filer_image.thumbnail
 
+
 @receiver(post_save, sender=FilerImage)
 def create_or_update_user_profile(sender, instance, created, **kwargs):
     if created:
@@ -336,6 +339,7 @@ class DeckImageExternal(DeckImageBase):
     def get_width(self):
         if self.width:
             return self.width
+        
         self.set_dimensions()
         if self.width:
             return self.width
@@ -348,9 +352,10 @@ class DeckImageExternal(DeckImageBase):
 
     def set_dimensions(self):
         img = image_from_url(self.url())
-        self.width = img.width
-        self.height = img.height
-        self.save()
+        if img:
+            self.width = img.width
+            self.height = img.height
+            self.save()
 
 
 class DeckImageIIIF(DeckImageBase):
@@ -389,9 +394,10 @@ class DeckImageIIIF(DeckImageBase):
 
     def set_dimensions(self):
         img = image_from_url(self.url())
-        self.width = img.width
-        self.height = img.height
-        self.save()
+        if img:
+            self.width = img.width
+            self.height = img.height
+            self.save()
 
 
 class DeckMembership(models.Model):
