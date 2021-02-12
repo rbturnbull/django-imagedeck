@@ -6,6 +6,8 @@ from django.db.models import Max
 from django.dispatch import receiver
 from polymorphic.models import PolymorphicModel
 from django.core.files import File as DjangoFile
+from django.contrib.contenttypes.models import ContentType
+from django.urls import reverse
 
 from filer.models import Image as FilerImage
 from filer.models import File as FilerFile
@@ -117,11 +119,12 @@ class DeckBase(PolymorphicModel):
         """
         return self.images.order_by( 'deckmembership__rank' )
 
-    def __len__(self):
-        return self.images.count()
-    
-    def __getitem__(self, i):
-        return self.images_ordered()[i]
+    # Don't add a __len__ function. For some reason it means that objects aren't saved in the database properly.
+    # def __len__(self):
+    #     return self.images.count()
+    #     
+    # def __getitem__(self, i):
+    #     return self.images_ordered()[i]
 
     def max_rank(self):
         """ Returns the highest rank of a membership in this deck. """
@@ -141,11 +144,21 @@ class DeckBase(PolymorphicModel):
             return None
         return self.images.filter(deckmembership__rank__gt=membership.rank).order_by( 'deckmembership__rank' )
 
+    def save_image_file(self, file, owner=None):
+        folder = create_filer_folder(self.name, owner=owner)
+        file_image = import_django_file( file, folder, owner )
+        image = file_image.deckimagefiler
+
+        self.add_image( image )
+
+        return image
+
     def add_image(self, image, rank=None):
         if rank is None:
             rank = self.max_rank() + 1
 
-        DeckMembership.objects.update_or_create( deck=self, image=image, rank=rank )
+        membership, _ = DeckMembership.objects.update_or_create( deck=self, image=image, rank=rank )
+        return membership
 
     def import_file(self, filename, folder, owner, rank_regex):
         # Create image
@@ -239,23 +252,26 @@ class DeckImageBase(PolymorphicModel):
         """
         return None
 
-    def thumbnail(self):
-        """ Returns a URL to a thumbnail of this image. """
-
-        # Try to keep aspect ratio
+    def thumbnail_dimensions(self):
         width = imagedeck_settings.IMAGEDECK_THUMBNAIL_WIDTH
         height = imagedeck_settings.IMAGEDECK_THUMBNAIL_HEIGHT
 
         if not width and not height:
             width = 250
 
+        # Try to keep aspect ratio
         if not height:
             height = width/self.get_width() * self.get_height()
 
         if not width:
             width = height/self.get_height() * self.get_width()
 
-        return self.url(width=imagedeck_settings.IMAGEDECK_THUMBNAIL_WIDTH, height=imagedeck_settings.IMAGEDECK_THUMBNAIL_HEIGHT)
+        return width, height
+
+    def thumbnail(self):
+        """ Returns a URL to a thumbnail of this image. """
+        width, height = self.thumbnail_dimensions()
+        return self.url(width=width, height=height)
 
     def get_width(self):
         return imagedeck_settings.IMAGEDECK_DEFAULT_WIDTH
@@ -315,11 +331,27 @@ class DeckImageFiler(DeckImageBase):
         return self.filer_image.height
 
     def thumbnail(self):
-        return self.filer_image.thumbnail
+        width, height = self.thumbnail_dimensions()
+
+        thumbnail_name = f"{width}x{height}"
+        required_thumbnails = {
+            thumbnail_name: {
+                'size': (width, height),
+                'crop': True,
+                'upscale': True,
+                'subject_location': self.filer_image.subject_location
+            }
+        }
+        thumbnails = self.filer_image._generate_thumbnails(required_thumbnails)
+
+        return thumbnails[thumbnail_name]
+
+    def url(self):
+        return self.filer_image.url
 
 
 @receiver(post_save, sender=FilerImage)
-def create_or_update_user_profile(sender, instance, created, **kwargs):
+def create_or_update_filer_image(sender, instance, created, **kwargs):
     if created:
         DeckImageFiler.objects.create(filer_image=instance)
     instance.deckimagefiler.save()
@@ -419,3 +451,45 @@ class DeckMembership(models.Model):
         TODO: check if this is this always the same as rank-1?
         """
         return DeckMembership.objects.filter(deck=self.deck, rank__lt=self.rank).count()
+
+
+
+class ImageDeckModelMixin(models.Model):
+    """
+    Mixin to enable Django models to include an image deck.
+    """
+    # imagedeck = models.ForeignKey(Deck, on_delete=models.SET_DEFAULT, default=None, null=True, blank=True,)
+    imagedeck = models.ForeignKey(DeckBase, on_delete=models.SET_DEFAULT, default=None, null=True, blank=True,) # This is better. It may break dcodex though
+
+    class Meta:
+        abstract = True
+
+    def default_imagedeck_name(self):
+        """ Hook to get a default name for the image deck if it needs to be created. """
+        return str(self)
+
+    def get_imagedeck(self):
+        """ 
+        Returns the image deck associated with this object. 
+        
+        Creates the image deck if necessary and saves it to this object.
+        """
+        if not self.imagedeck:
+            self.imagedeck = Deck.objects.create(name=self.default_imagedeck_name())
+            self.imagedeck.save()
+            self.save()
+
+        return self.imagedeck
+
+    def save_image_file(self, file):
+        """ 
+        Saves a new image from a file and adds it to this object's image deck. 
+        
+        Creates the image deck if necessary.
+        """
+        imagedeck = self.get_imagedeck()
+
+        return imagedeck.save_image_file( file )
+
+    def get_image_upload_url(self):
+        return reverse( "image-upload", kwargs={"content_type_id": ContentType.objects.get_for_model(self).id, "pk":self.pk } )
