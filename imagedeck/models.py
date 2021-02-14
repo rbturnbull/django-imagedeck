@@ -452,6 +452,8 @@ class DeckMembership(models.Model):
         """
         return DeckMembership.objects.filter(deck=self.deck, rank__lt=self.rank).count()
 
+    def thumbnail(self):
+        return self.image.thumbnail()
 
 
 class ImageDeckModelMixin(models.Model):
