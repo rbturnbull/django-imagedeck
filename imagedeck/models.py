@@ -333,6 +333,18 @@ class DeckImageFiler(DeckImageBase):
     def thumbnail(self):
         width, height = self.thumbnail_dimensions()
 
+        return self.url( width=width, height=height )
+
+    def url(self, width=None, height=None):
+        if width == None and height == None:
+            return self.filer_image.url
+
+        if height==None:
+            height = 0
+
+        if width==None:
+            width = 0
+        
         thumbnail_name = f"{width}x{height}"
         required_thumbnails = {
             thumbnail_name: {
@@ -345,9 +357,6 @@ class DeckImageFiler(DeckImageBase):
         thumbnails = self.filer_image._generate_thumbnails(required_thumbnails)
 
         return thumbnails[thumbnail_name]
-
-    def url(self):
-        return self.filer_image.url
 
 
 @receiver(post_save, sender=FilerImage)
@@ -454,6 +463,9 @@ class DeckMembership(models.Model):
 
     def thumbnail(self):
         return self.image.thumbnail()
+
+    def url(self, **kwargs):
+        return self.image.url(**kwargs)
 
 
 class ImageDeckModelMixin(models.Model):
