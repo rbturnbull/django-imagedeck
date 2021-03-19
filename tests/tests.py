@@ -30,4 +30,4 @@ class ImageDeckModelTest(TestCase):
         self.assertEquals( type(imagedeck), Deck )
 
         model2 = ImageDeckModel.objects.get(pk=self.model.pk)
-        self.assertEquals( model2.image_deck.pk, imagedeck.pk )
+        self.assertEquals( model2.imagedeck.pk, imagedeck.pk )
