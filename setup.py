@@ -1,16 +1,6 @@
-from setuptools import setup
+#!/usr/bin/env python
 
-requirements = [
-    "Django>3",
-    "Pillow>=8.1.1",
-    "django-imagekit>=4.0.2",
-    "django-polymorphic>=3.0.0",
-    "django-filer>=2.0.2",
-    "requests>=2.24.0",
-    "django-admin-sortable2>=0.7.6",
-    "easy-thumbnails",
-]
+import setuptools
 
-setup(
-    install_requires=requirements,
-)
+if __name__ == "__main__":
+    setuptools.setup()

@@ -1,0 +1,6 @@
+[run]
+source = imagedeck
+
+[report]
+precision = 2
+
