@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "imagedeck"
+name = "django-imagedeck"
 version = "0.3.0"
 description = "A package to seamlessly group different sorts of images into groups."
 authors = ["Robert Turnbull <robert.turnbull@unimelb.edu.au>"]
