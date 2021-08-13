@@ -119,6 +119,9 @@ class DeckBase(PolymorphicModel):
         """
         return self.images.order_by( 'deckmembership__rank' )
 
+    def memberships(self):
+        return DeckMembership.objects.filter(deck=self).order_by( 'rank' )
+
     # Don't add a __len__ function. For some reason it means that objects aren't saved in the database properly.
     # def __len__(self):
     #     return self.images.count()
@@ -234,6 +237,33 @@ class Deck(DeckBase):
 class DeckGallica(DeckBase):
     base_url = models.URLField(max_length=511)
     
+
+class DeckIIIF(DeckBase):
+    manifest_url = models.URLField(max_length=511)
+
+    def get_manifest_text(self):
+        f = requests.get(self.manifest_url)
+        return f.text
+
+    def image_base_urls(self):
+        manifest_text = self.get_manifest_text()
+        matches = re.findall(r'json\"\,\"@id\":"(.*?)"', manifest_text)
+        return [match for match in matches if "iiif/2/" in match]
+
+    def images_from_manifest(self):
+        urls = self.image_base_urls()
+
+        for url in urls:
+            image, _ = DeckImageIIIF.objects.update_or_create(base_url=url)
+            if self.images.filter(id=image.id).count() == 0:
+                self.add_image( image )
+
+    # Override save to get the images from the manifest if there aren't already images there
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+        if self.images.count() == 0 and self.manifest_url:
+            self.images_from_manifest()
 
 
 class DeckImageBase(PolymorphicModel):
@@ -380,13 +410,15 @@ class DeckImageExternal(DeckImageBase):
     def get_width(self):
         if self.width:
             return self.width
-        
         self.set_dimensions()
         if self.width:
             return self.width
         return imagedeck_settings.IMAGEDECK_DEFAULT_WIDTH
 
     def get_height(self):
+        if self.height:
+            return self.height
+        self.set_dimensions()
         if self.height:
             return self.height
         return imagedeck_settings.IMAGEDECK_DEFAULT_HEIGHT
@@ -433,12 +465,28 @@ class DeckImageIIIF(DeckImageBase):
             return self.height
         return imagedeck_settings.IMAGEDECK_DEFAULT_HEIGHT
 
+    def info_json_url(self):
+        return f"{self.base_url}/info.json"
+
+    def get_info_json(self):
+        f = requests.get(self.info_json_url())
+        return f.json()
+
     def set_dimensions(self):
-        img = image_from_url(self.url())
-        if img:
-            self.width = img.width
-            self.height = img.height
+        info_json = self.get_info_json()
+        save = False
+        if "width" in info_json:
+            self.width = info_json["width"]
+            save = True
+        if "height" in info_json:
+            self.height = info_json["height"]
+            save = True
+        if save:
             self.save()
+
+    def thumbnail_dimensions(self):
+        width = imagedeck_settings.IMAGEDECK_THUMBNAIL_WIDTH or 250
+        return width, None
 
 
 class DeckMembership(models.Model):
@@ -506,4 +554,4 @@ class ImageDeckModelMixin(models.Model):
         return imagedeck.save_image_file( file )
 
     def get_image_upload_url(self):
-        return reverse( "image-upload", kwargs={"content_type_id": ContentType.objects.get_for_model(self).id, "pk":self.pk } )
+        return reverse( "imagedeck:upload", kwargs={"content_type_id": ContentType.objects.get_for_model(self).id, "pk":self.pk } )

@@ -33,11 +33,16 @@ class DeckGallicaAdmin(DeckBaseChildAdmin):
     base_model = DeckGallica
 
 
+@admin.register(DeckIIIF)
+class DeckIIIFAdmin(DeckBaseChildAdmin):
+    base_model = DeckIIIF
+
+
 @admin.register(DeckBase)
 class DeckBaseParentAdmin(PolymorphicParentModelAdmin):
     """ The parent model admin """
     base_model = DeckBase  # Optional, explicitly set here.
-    child_models = (Deck, DeckGallica)
+    child_models = (Deck, DeckGallica, DeckIIIF)
     list_filter = (PolymorphicChildModelFilter,)  # This is optional.
 
 
