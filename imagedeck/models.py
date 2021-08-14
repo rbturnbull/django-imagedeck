@@ -241,6 +241,26 @@ class DeckGallica(DeckBase):
     base_url = models.URLField(max_length=511)
     
 
+def images_in_iiif_json_element(element, result, prefix=""):
+    """ Recursively checks a JSON element from a IIIF Manifest for an image. """
+    if type(element) == dict:
+        if "@type" in element and element["@type"] == "dctypes:Image" and "service" in element and "@id" in element["service"]:
+            result.append(element["service"]["@id"])
+
+        for child in element:
+            images_in_iiif_json_element(element[child], result, prefix=f"\t{prefix}")
+
+    elif type(element) == list:
+        for child in element:
+            images_in_iiif_json_element(child, result, prefix=f"\t{prefix}")
+
+def images_in_iiif_json(data):
+    """ Returns a list of all the images in a IIIF presentation. """
+    result = []
+    images_in_iiif_json_element(data, result)
+    return result
+
+
 class DeckIIIF(DeckBase):
     manifest_url = models.URLField(max_length=511)
 
@@ -248,10 +268,12 @@ class DeckIIIF(DeckBase):
         f = requests.get(self.manifest_url)
         return f.text
 
+    def get_manifest_json(self):
+        f = requests.get(self.manifest_url)
+        return f.json()
+
     def image_base_urls(self):
-        manifest_text = self.get_manifest_text()
-        matches = re.findall(r'json\"\,\"@id\":"(.*?)"', manifest_text)
-        return [match for match in matches if "iiif/2/" in match]
+        return images_in_iiif_json(self.get_manifest_json())
 
     def images_from_manifest(self):
         urls = self.image_base_urls()
