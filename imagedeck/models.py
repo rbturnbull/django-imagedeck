@@ -105,6 +105,9 @@ class DeckBase(PolymorphicModel):
     name = models.CharField(max_length=255, default="", blank=True)
     images = models.ManyToManyField( 'DeckImageBase', through='DeckMembership')
 
+    class Meta:
+        ordering = ['name',]
+
     def __str__(self):
         return self.name
 
