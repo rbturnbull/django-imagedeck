@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('imagedeck', '0003_deckbase_images'),
+        ("imagedeck", "0003_deckbase_images"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='deckimageiiif',
-            name='height',
+            model_name="deckimageiiif",
+            name="height",
             field=models.PositiveIntegerField(blank=True, default=0),
         ),
         migrations.AddField(
-            model_name='deckimageiiif',
-            name='width',
+            model_name="deckimageiiif",
+            name="width",
             field=models.PositiveIntegerField(blank=True, default=0),
         ),
     ]

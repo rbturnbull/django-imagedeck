@@ -4,7 +4,9 @@ from imagedeck.models import DeckImageBase
 
 class Command(BaseCommand):
     def add_arguments(self, parser):
-        parser.add_argument('widths', nargs='+', type=str, help="The widths to generate.")
+        parser.add_argument(
+            "widths", nargs="+", type=str, help="The widths to generate."
+        )
 
     def handle(self, *args, **options):
 
@@ -12,5 +14,5 @@ class Command(BaseCommand):
             print(image)
             print("Thumbnail:", image.thumbnail())
 
-            for width in options['widths']:
+            for width in options["widths"]:
                 print(f"{width} wide:", image.url(width=width))

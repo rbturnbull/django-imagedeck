@@ -1,23 +1,30 @@
 from django.contrib import admin
 from adminsortable2.admin import SortableInlineAdminMixin
-from polymorphic.admin import PolymorphicParentModelAdmin, PolymorphicChildModelAdmin, PolymorphicChildModelFilter
+from polymorphic.admin import (
+    PolymorphicParentModelAdmin,
+    PolymorphicChildModelAdmin,
+    PolymorphicChildModelFilter,
+)
 from filer.admin.imageadmin import ImageAdmin
 from filer.models import Image as FilerImage
-from .models import * 
+from .models import *
 
 
 class DeckMembershipInline(SortableInlineAdminMixin, admin.TabularInline):
     model = DeckMembership
     extra = 0
-    raw_id_fields = ('image',)
+    raw_id_fields = ("image",)
+
 
 class DeckMembershipNonSortableInline(admin.TabularInline):
     model = DeckMembership
     extra = 0
-    raw_id_fields = ('image',)
+    raw_id_fields = ("image",)
+
 
 class DeckBaseChildAdmin(PolymorphicChildModelAdmin):
-    """ Base admin class for all child models """
+    """Base admin class for all child models"""
+
     base_model = DeckBase
     show_in_index = True  # makes child model admin visible in main admin site
     inlines = (DeckMembershipInline,)
@@ -40,14 +47,16 @@ class DeckIIIFAdmin(DeckBaseChildAdmin):
 
 @admin.register(DeckBase)
 class DeckBaseParentAdmin(PolymorphicParentModelAdmin):
-    """ The parent model admin """
+    """The parent model admin"""
+
     base_model = DeckBase  # Optional, explicitly set here.
     child_models = (Deck, DeckGallica, DeckIIIF)
     list_filter = (PolymorphicChildModelFilter,)  # This is optional.
 
 
 class DeckImageBaseChildAdmin(PolymorphicChildModelAdmin):
-    """ Base admin class for all child models """
+    """Base admin class for all child models"""
+
     base_model = DeckImageBase
     show_in_index = True  # makes child model admin visible in main admin site
     inlines = (DeckMembershipNonSortableInline,)
@@ -75,10 +84,12 @@ class DeckImageExternalAdmin(DeckImageBaseChildAdmin):
 
 @admin.register(DeckImageBase)
 class DeckImageBaseParentAdmin(PolymorphicParentModelAdmin):
-    """ The parent model admin """
+    """The parent model admin"""
+
     base_model = DeckImageBase  # Optional, explicitly set here.
     child_models = (DeckImage, DeckImageFiler, DeckImageIIIF, DeckImageExternal)
     list_filter = (PolymorphicChildModelFilter,)  # This is optional.
+
 
 @admin.register(DeckLicence)
 class DeckLicenceAdmin(admin.ModelAdmin):
@@ -88,8 +99,8 @@ class DeckLicenceAdmin(admin.ModelAdmin):
 class DeckImageFilerInline(admin.StackedInline):
     model = DeckImageFiler
     can_delete = False
-    verbose_name_plural = 'Deck Image'
-    fk_name = 'filer_image'
+    verbose_name_plural = "Deck Image"
+    fk_name = "filer_image"
 
 
 class CustomFilerImageAdmin(ImageAdmin):

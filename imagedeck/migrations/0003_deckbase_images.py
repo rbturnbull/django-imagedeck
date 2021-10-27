@@ -6,13 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('imagedeck', '0002_auto_20201102_1443'),
+        ("imagedeck", "0002_auto_20201102_1443"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='deckbase',
-            name='images',
-            field=models.ManyToManyField(through='imagedeck.DeckMembership', to='imagedeck.DeckImageBase'),
+            model_name="deckbase",
+            name="images",
+            field=models.ManyToManyField(
+                through="imagedeck.DeckMembership", to="imagedeck.DeckImageBase"
+            ),
         ),
     ]

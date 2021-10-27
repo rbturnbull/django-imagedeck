@@ -9,7 +9,6 @@ from django.views.generic import (
 from .models import TestModel
 
 
-
 class TestListView(ListView):
     model = TestModel
     paginate_by = 10

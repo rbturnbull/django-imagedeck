@@ -6,27 +6,27 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('imagedeck', '0004_auto_20201102_1538'),
+        ("imagedeck", "0004_auto_20201102_1538"),
     ]
 
     operations = [
         migrations.RenameModel(
-            old_name='DeckLicense',
-            new_name='DeckLicence',
+            old_name="DeckLicense",
+            new_name="DeckLicence",
         ),
         migrations.RenameField(
-            model_name='deckimagebase',
-            old_name='license',
-            new_name='licence',
+            model_name="deckimagebase",
+            old_name="license",
+            new_name="licence",
         ),
         migrations.AddField(
-            model_name='deckimageexternal',
-            name='height',
+            model_name="deckimageexternal",
+            name="height",
             field=models.PositiveIntegerField(blank=True, default=0),
         ),
         migrations.AddField(
-            model_name='deckimageexternal',
-            name='width',
+            model_name="deckimageexternal",
+            name="width",
             field=models.PositiveIntegerField(blank=True, default=0),
         ),
     ]

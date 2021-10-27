@@ -1,1 +1,1 @@
-default_app_config = 'imagedeck.apps.ImagedeckConfig'
+default_app_config = "imagedeck.apps.ImagedeckConfig"

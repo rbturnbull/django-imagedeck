@@ -25,13 +25,15 @@ import glob
 
 from . import settings as imagedeck_settings
 
+
 def check_owner(owner):
     if owner and type(owner) == str:
         owner = get_user_model().objects.get(username=owner)
     return owner
 
-def create_filer_folder( destination, owner=None ):
-    """ Recursively creates a folder structure in django-filer. """
+
+def create_filer_folder(destination, owner=None):
+    """Recursively creates a folder structure in django-filer."""
     # Get owner if it is just a string
     owner = check_owner(owner)
 
@@ -39,50 +41,56 @@ def create_filer_folder( destination, owner=None ):
     dest_path = Path(destination)
     folder = None
     for folder_name in dest_path.parts:
-        folder, created = Folder.objects.update_or_create( name=folder_name, parent=folder )
+        folder, created = Folder.objects.update_or_create(
+            name=folder_name, parent=folder
+        )
         if created and owner:
             folder.owner = owner
             folder.save()
     return folder
+
 
 def import_django_file(file_obj, folder, owner=None):
     """
     Create a File or an Image into the given folder
 
     Adapted from filer.management.commands.import_files
-    """    
+    """
     try:
         path = Path(file_obj.name)
         iext = path.suffix.lower()
     except Exception as err:  # noqa
         # print("exception", err)
-        iext = ''
+        iext = ""
 
     # Get owner if it is just a string
     owner = check_owner(owner)
 
-    if iext in ['.jpg', '.jpeg', '.png', '.gif']:
+    if iext in [".jpg", ".jpeg", ".png", ".gif"]:
         obj, created = FilerImage.objects.get_or_create(
             original_filename=file_obj.name,
             file=file_obj,
             folder=folder,
             owner=owner,
-            is_public=FILER_IS_PUBLIC_DEFAULT)
+            is_public=FILER_IS_PUBLIC_DEFAULT,
+        )
     else:
         obj, created = FilerFile.objects.get_or_create(
             original_filename=file_obj.name,
             file=file_obj,
             owner=owner,
             folder=folder,
-            is_public=FILER_IS_PUBLIC_DEFAULT)
+            is_public=FILER_IS_PUBLIC_DEFAULT,
+        )
     return obj
 
+
 def import_file(file_path, folder, owner=None):
-    """ Imports a file from a path into a folder in Django Filer. """
+    """Imports a file from a path into a folder in Django Filer."""
     if type(file_path) == str:
         file_path = Path(file_path)
-    dj_file = DjangoFile(open(file_path, mode='rb'), name=file_path.name)    
-    return import_django_file( dj_file, folder, owner )
+    dj_file = DjangoFile(open(file_path, mode="rb"), name=file_path.name)
+    return import_django_file(dj_file, folder, owner)
 
 
 def image_from_url(url):
@@ -92,27 +100,34 @@ def image_from_url(url):
     except:
         return None
 
+
 class DeckLicence(models.Model):
     name = models.CharField(max_length=255)
-    logo = models.URLField(max_length=511, help_text="A URL for the image of the logo of this licence.")
-    info = models.URLField(max_length=511, help_text="A URL for more information about this licence.")
+    logo = models.URLField(
+        max_length=511, help_text="A URL for the image of the logo of this licence."
+    )
+    info = models.URLField(
+        max_length=511, help_text="A URL for more information about this licence."
+    )
 
     def __str__(self):
         return self.name
-    
+
 
 class DeckBase(PolymorphicModel):
     name = models.CharField(max_length=255, default="", blank=True)
-    images = models.ManyToManyField( 'DeckImageBase', through='DeckMembership')
+    images = models.ManyToManyField("DeckImageBase", through="DeckMembership")
 
     class Meta:
-        ordering = ['name',]
+        ordering = [
+            "name",
+        ]
 
     def __str__(self):
         return self.name
 
     def primary_image(self):
-        return self.images.order_by( '-deckmembership__primary' ).first()
+        return self.images.order_by("-deckmembership__primary").first()
 
     def images_ordered(self):
         """
@@ -120,42 +135,46 @@ class DeckBase(PolymorphicModel):
 
         NB. This shouldn't be necessary. It should work from the ordering field on the DeckMembership class.
         """
-        return self.images.order_by( 'deckmembership__rank' )
+        return self.images.order_by("deckmembership__rank")
 
     def memberships(self):
-        return DeckMembership.objects.filter(deck=self).order_by( 'rank' )
+        return DeckMembership.objects.filter(deck=self).order_by("rank")
 
     # Don't add a __len__ function. For some reason it means that objects aren't saved in the database properly.
     # def __len__(self):
     #     return self.images.count()
-    #     
+    #
     # def __getitem__(self, i):
     #     return self.images_ordered()[i]
 
     def max_rank(self):
-        """ Returns the highest rank of a membership in this deck. """
+        """Returns the highest rank of a membership in this deck."""
         if self.deckmembership_set.count() == 0:
             return 0
-        return self.deckmembership_set.aggregate(Max('rank'))['rank__max']
+        return self.deckmembership_set.aggregate(Max("rank"))["rank__max"]
 
     def images_before(self, image):
         membership = image.deckmembership_set.filter(deck=self)
         if not membership:
             return None
-        return self.images.filter(deckmembership__rank__lt=membership.rank).order_by( 'deckmembership__rank' )
+        return self.images.filter(deckmembership__rank__lt=membership.rank).order_by(
+            "deckmembership__rank"
+        )
 
     def images_after(self, image):
         membership = image.deckmembership_set.filter(deck=self)
         if not membership:
             return None
-        return self.images.filter(deckmembership__rank__gt=membership.rank).order_by( 'deckmembership__rank' )
+        return self.images.filter(deckmembership__rank__gt=membership.rank).order_by(
+            "deckmembership__rank"
+        )
 
     def save_image_file(self, file, owner=None):
         folder = create_filer_folder(self.name, owner=owner)
-        file_image = import_django_file( file, folder, owner )
+        file_image = import_django_file(file, folder, owner)
         image = file_image.deckimagefiler
 
-        self.add_image( image )
+        self.add_image(image)
 
         return image
 
@@ -163,66 +182,77 @@ class DeckBase(PolymorphicModel):
         if rank is None:
             rank = self.max_rank() + 1
 
-        membership, _ = DeckMembership.objects.update_or_create( deck=self, image=image, rank=rank )
+        membership, _ = DeckMembership.objects.update_or_create(
+            deck=self, image=image, rank=rank
+        )
         return membership
 
     def import_file(self, filename, folder, owner, rank_regex):
         # Create image
-        file = import_file( filename, folder, owner=owner )
+        file = import_file(filename, folder, owner=owner)
         if type(file) == FilerImage:
             # Get rank
-            integer_matches = re.findall(rank_regex, str(filename) )
+            integer_matches = re.findall(rank_regex, str(filename))
             rank = int(integer_matches[-1]) if integer_matches else None
 
             # Add to deck
-            self.add_image( file.deckimagefiler, rank=rank )
+            self.add_image(file.deckimagefiler, rank=rank)
         return file
 
     @classmethod
-    def combine( cls, new_deck, decks_to_combine ):
+    def combine(cls, new_deck, decks_to_combine):
         images = []
         for deck_to_combine in decks_to_combine:
             if type(deck_to_combine) == str:
                 deck_to_combine = Deck.objects.get(name=deck_to_combine)
             images += list(deck_to_combine.images_ordered())
-        
+
         if type(new_deck) == str:
-            new_deck, _ = Deck.objects.update_or_create( name=new_deck )
-        
+            new_deck, _ = Deck.objects.update_or_create(name=new_deck)
+
         for image in images:
-            new_deck.add_image( image )
+            new_deck.add_image(image)
 
         return new_deck
 
     @classmethod
-    def import_glob( cls, destination, pattern, deck_name="", owner=None, rank_regex="(\d+)" ):
-        """ Import files using a glob pattern. """
+    def import_glob(
+        cls, destination, pattern, deck_name="", owner=None, rank_regex="(\d+)"
+    ):
+        """Import files using a glob pattern."""
         folder = create_filer_folder(destination, owner=owner)
-        
+
         if not deck_name:
             deck_name = str(folder)
-        
-        deck, _ = Deck.objects.update_or_create( name=deck_name )
+
+        deck, _ = Deck.objects.update_or_create(name=deck_name)
         deck.save()
 
         for filename in glob.glob(pattern):
-            print(f'Adding {filename}')
-            deck.import_file( filename, folder, owner, rank_regex )
+            print(f"Adding {filename}")
+            deck.import_file(filename, folder, owner, rank_regex)
 
         return deck
 
 
 class Deck(DeckBase):
-    
     @classmethod
-    def import_regex( cls, destination, pattern, source_dir=".", deck_name="", owner=None, rank_regex="(\d+)" ):
-        """ Import files using a regex pattern. """
+    def import_regex(
+        cls,
+        destination,
+        pattern,
+        source_dir=".",
+        deck_name="",
+        owner=None,
+        rank_regex="(\d+)",
+    ):
+        """Import files using a regex pattern."""
         folder = create_filer_folder(destination, owner=owner)
-        
+
         if not deck_name:
             deck_name = str(folder)
-        
-        deck, _ = Deck.objects.update_or_create( name=deck_name )
+
+        deck, _ = Deck.objects.update_or_create(name=deck_name)
         deck.save()
 
         if type(source_dir) == str:
@@ -230,21 +260,26 @@ class Deck(DeckBase):
 
         for filename in os.listdir(source_dir):
             if re.match(pattern, filename):
-                print(f'Adding {filename}')
-                
-                deck.import_file( source_dir/filename, folder, owner, rank_regex )
+                print(f"Adding {filename}")
+
+                deck.import_file(source_dir / filename, folder, owner, rank_regex)
 
         return deck
 
 
 class DeckGallica(DeckBase):
     base_url = models.URLField(max_length=511)
-    
+
 
 def images_in_iiif_json_element(element, result, prefix=""):
-    """ Recursively checks a JSON element from a IIIF Manifest for an image. """
+    """Recursively checks a JSON element from a IIIF Manifest for an image."""
     if type(element) == dict:
-        if "@type" in element and element["@type"] == "dctypes:Image" and "service" in element and "@id" in element["service"]:
+        if (
+            "@type" in element
+            and element["@type"] == "dctypes:Image"
+            and "service" in element
+            and "@id" in element["service"]
+        ):
             result.append(element["service"]["@id"])
 
         for child in element:
@@ -254,8 +289,9 @@ def images_in_iiif_json_element(element, result, prefix=""):
         for child in element:
             images_in_iiif_json_element(child, result, prefix=f"\t{prefix}")
 
+
 def images_in_iiif_json(data):
-    """ Returns a list of all the images in a IIIF presentation. """
+    """Returns a list of all the images in a IIIF presentation."""
     result = []
     images_in_iiif_json_element(data, result)
     return result
@@ -281,7 +317,7 @@ class DeckIIIF(DeckBase):
         for url in urls:
             image, _ = DeckImageIIIF.objects.update_or_create(base_url=url)
             if self.images.filter(id=image.id).count() == 0:
-                self.add_image( image )
+                self.add_image(image)
 
     # Override save to get the images from the manifest if there aren't already images there
     def save(self, *args, **kwargs):
@@ -290,7 +326,7 @@ class DeckIIIF(DeckBase):
         if self.images.count() == 0 and self.manifest_url:
             self.images_from_manifest()
 
-    def split(self, width_pct: int=50, rtl=False):
+    def split(self, width_pct: int = 50, rtl=False):
         new_deck = Deck.objects.create(
             name=f"{self.name} split width {width_pct}",
         )
@@ -302,17 +338,28 @@ class DeckIIIF(DeckBase):
 
 
 class DeckImageBase(PolymorphicModel):
-    licence = models.ForeignKey(DeckLicence, on_delete=models.SET_DEFAULT, default=None, null=True, blank=True)
-    source_url = models.URLField(max_length=511, default="", blank=True, help_text="The URL for the source of this image.")
-    attribution = models.CharField(max_length=255, default="", blank=True, )
+    licence = models.ForeignKey(
+        DeckLicence, on_delete=models.SET_DEFAULT, default=None, null=True, blank=True
+    )
+    source_url = models.URLField(
+        max_length=511,
+        default="",
+        blank=True,
+        help_text="The URL for the source of this image.",
+    )
+    attribution = models.CharField(
+        max_length=255,
+        default="",
+        blank=True,
+    )
 
-    # TODO add permissions 
+    # TODO add permissions
     # https://django-guardian.readthedocs.io/en/stable/userguide/assign.html ?
 
     def url(self, width=None, height=None):
-        """ 
+        """
         Returns a URL to a version of this image.
-        
+
         If width and height are null then it returns the fullsized image.
         """
         return None
@@ -326,15 +373,15 @@ class DeckImageBase(PolymorphicModel):
 
         # Try to keep aspect ratio
         if not height:
-            height = width/self.get_width() * self.get_height()
+            height = width / self.get_width() * self.get_height()
 
         if not width:
-            width = height/self.get_height() * self.get_width()
+            width = height / self.get_height() * self.get_width()
 
         return width, height
 
     def thumbnail(self):
-        """ Returns a URL to a thumbnail of this image. """
+        """Returns a URL to a thumbnail of this image."""
         width, height = self.thumbnail_dimensions()
         return self.url(width=width, height=height)
 
@@ -347,22 +394,26 @@ class DeckImageBase(PolymorphicModel):
     def get_caption(self):
         components = []
         if self.attribution:
-            components.append( f"Attribution: {self.attribution}")
+            components.append(f"Attribution: {self.attribution}")
         if self.source_url:
-            components.append( f"Source: {self.source_url}.")
+            components.append(f"Source: {self.source_url}.")
         if self.licence:
-            components.append( f"Licence: {self.licence}.")
+            components.append(f"Licence: {self.licence}.")
         return " ".join(components)
-
 
 
 class DeckImage(DeckImageBase):
     image = models.ImageField()
     thumbnail_generator = ImageSpecField(
-        source='image', 
-        processors=[Thumbnail(imagedeck_settings.IMAGEDECK_THUMBNAIL_WIDTH, imagedeck_settings.IMAGEDECK_THUMBNAIL_HEIGHT)], 
-        format=imagedeck_settings.IMAGEDECK_THUMBNAIL_FORMAT, 
-        options={'quality': imagedeck_settings.IMAGEDECK_THUMBNAIL_QUALITY}
+        source="image",
+        processors=[
+            Thumbnail(
+                imagedeck_settings.IMAGEDECK_THUMBNAIL_WIDTH,
+                imagedeck_settings.IMAGEDECK_THUMBNAIL_HEIGHT,
+            )
+        ],
+        format=imagedeck_settings.IMAGEDECK_THUMBNAIL_FORMAT,
+        options={"quality": imagedeck_settings.IMAGEDECK_THUMBNAIL_QUALITY},
     )
 
     def __str__(self):
@@ -384,7 +435,9 @@ class DeckImage(DeckImageBase):
 
 
 class DeckImageFiler(DeckImageBase):
-    filer_image = models.OneToOneField(FilerImage, on_delete=models.CASCADE, related_name="deckimagefiler")
+    filer_image = models.OneToOneField(
+        FilerImage, on_delete=models.CASCADE, related_name="deckimagefiler"
+    )
 
     def __str__(self):
         return str(self.filer_image)
@@ -398,25 +451,25 @@ class DeckImageFiler(DeckImageBase):
     def thumbnail(self):
         width, height = self.thumbnail_dimensions()
 
-        return self.url( width=width, height=height )
+        return self.url(width=width, height=height)
 
     def url(self, width=None, height=None):
         if width == None and height == None:
             return self.filer_image.url
 
-        if height==None:
+        if height == None:
             height = 0
 
-        if width==None:
+        if width == None:
             width = 0
-        
+
         thumbnail_name = f"{width}x{height}"
         required_thumbnails = {
             thumbnail_name: {
-                'size': (width, height),
-                'crop': True,
-                'upscale': True,
-                'subject_location': self.filer_image.subject_location
+                "size": (width, height),
+                "crop": True,
+                "upscale": True,
+                "subject_location": self.filer_image.subject_location,
             }
         }
         thumbnails = self.filer_image._generate_thumbnails(required_thumbnails)
@@ -470,12 +523,18 @@ class DeckImageIIIF(DeckImageBase):
     base_url = models.URLField(max_length=511)
     width = models.PositiveIntegerField(default=0, blank=True)
     height = models.PositiveIntegerField(default=0, blank=True)
-    region = models.CharField(max_length=255, default="full", help_text="A way to crop the region of an image. In the form of 'full', 'x,y,w,h' or 'pct:x,y,w,h'.")
+    region = models.CharField(
+        max_length=255,
+        default="full",
+        help_text="A way to crop the region of an image. In the form of 'full', 'x,y,w,h' or 'pct:x,y,w,h'.",
+    )
 
     def __str__(self):
         return self.base_url
 
-    def iiif_url(self, region=None, size="full", rotation="0", quality="default", format="jpg"):
+    def iiif_url(
+        self, region=None, size="full", rotation="0", quality="default", format="jpg"
+    ):
         region = region or self.region
         return f"{self.base_url}/{region}/{size}/{rotation}/{quality}.{format}"
 
@@ -483,10 +542,12 @@ class DeckImageIIIF(DeckImageBase):
         if width is None and height is None:
             size = "full"
         else:
-            if width is None: width = ""
-            if height is None: height = ""
+            if width is None:
+                width = ""
+            if height is None:
+                height = ""
             size = f"{width},{height}"
-            
+
         return self.iiif_url(size=size)
 
     def get_width(self):
@@ -525,10 +586,10 @@ class DeckImageIIIF(DeckImageBase):
         width = imagedeck_settings.IMAGEDECK_THUMBNAIL_WIDTH or 250
         return width, None
 
-    def split(self, width_pct: int=50, rtl=False):
-        """ 
+    def split(self, width_pct: int = 50, rtl=False):
+        """
         Creates two new IIIF images.
-        
+
         Useful for imgaes of an open page spread that needs to be divided.
 
         Returns a list of two DeckImageIIIF objects.
@@ -539,10 +600,10 @@ class DeckImageIIIF(DeckImageBase):
         )
         if rtl:
             regions = (regions[1], regions[0])
-        
+
         result = []
         for region in regions:
-            width = int(self.width*width_pct*100) if self.width else self.width
+            width = int(self.width * width_pct * 100) if self.width else self.width
             image, _ = type(self).objects.update_or_create(
                 base_url=self.base_url,
                 width=width,
@@ -556,19 +617,26 @@ class DeckImageIIIF(DeckImageBase):
 class DeckMembership(models.Model):
     deck = models.ForeignKey(DeckBase, on_delete=models.CASCADE)
     image = models.ForeignKey(DeckImageBase, on_delete=models.CASCADE)
-    rank = models.PositiveIntegerField( default=0, help_text="The rank of the image in the ordering of the deck.")
-    primary = models.BooleanField(default=False, help_text="Whether or not this image should be conisdered the primary image for the deck.")
+    rank = models.PositiveIntegerField(
+        default=0, help_text="The rank of the image in the ordering of the deck."
+    )
+    primary = models.BooleanField(
+        default=False,
+        help_text="Whether or not this image should be conisdered the primary image for the deck.",
+    )
 
     def __str__(self):
         return f"{self.deck}, {self.image}, {self.rank}"
 
     class Meta:
-        ordering = ['rank',]
+        ordering = [
+            "rank",
+        ]
 
     def index(self):
-        """ 
-        Returns the index of this image in the deck. 
-        
+        """
+        Returns the index of this image in the deck.
+
         TODO: check if this is this always the same as rank-1?
         """
         return DeckMembership.objects.filter(deck=self.deck, rank__lt=self.rank).count()
@@ -584,20 +652,27 @@ class ImageDeckModelMixin(models.Model):
     """
     Mixin to enable Django models to include an image deck.
     """
+
     # imagedeck = models.ForeignKey(Deck, on_delete=models.SET_DEFAULT, default=None, null=True, blank=True,)
-    imagedeck = models.ForeignKey(DeckBase, on_delete=models.SET_DEFAULT, default=None, null=True, blank=True,) # This is better. It may break dcodex though
+    imagedeck = models.ForeignKey(
+        DeckBase,
+        on_delete=models.SET_DEFAULT,
+        default=None,
+        null=True,
+        blank=True,
+    )  # This is better. It may break dcodex though
 
     class Meta:
         abstract = True
 
     def default_imagedeck_name(self):
-        """ Hook to get a default name for the image deck if it needs to be created. """
+        """Hook to get a default name for the image deck if it needs to be created."""
         return str(self)
 
     def get_imagedeck(self):
-        """ 
-        Returns the image deck associated with this object. 
-        
+        """
+        Returns the image deck associated with this object.
+
         Creates the image deck if necessary and saves it to this object.
         """
         if not self.imagedeck:
@@ -608,14 +683,20 @@ class ImageDeckModelMixin(models.Model):
         return self.imagedeck
 
     def save_image_file(self, file):
-        """ 
-        Saves a new image from a file and adds it to this object's image deck. 
-        
+        """
+        Saves a new image from a file and adds it to this object's image deck.
+
         Creates the image deck if necessary.
         """
         imagedeck = self.get_imagedeck()
 
-        return imagedeck.save_image_file( file )
+        return imagedeck.save_image_file(file)
 
     def get_image_upload_url(self):
-        return reverse( "imagedeck:upload", kwargs={"content_type_id": ContentType.objects.get_for_model(self).id, "pk":self.pk } )
+        return reverse(
+            "imagedeck:upload",
+            kwargs={
+                "content_type_id": ContentType.objects.get_for_model(self).id,
+                "pk": self.pk,
+            },
+        )

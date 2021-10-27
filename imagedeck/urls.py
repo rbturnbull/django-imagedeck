@@ -8,5 +8,9 @@ from django.urls import reverse_lazy
 
 app_name = "imagedeck"
 urlpatterns = [
-    path("image-upload/<int:content_type_id>/<int:pk>/", views.image_upload, name="upload"),    
+    path(
+        "image-upload/<int:content_type_id>/<int:pk>/",
+        views.image_upload,
+        name="upload",
+    ),
 ]

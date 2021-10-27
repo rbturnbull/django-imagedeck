@@ -9,13 +9,17 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.FILER_IMAGE_MODEL),
-        ('imagedeck', '0008_deckimagefiler'),
+        ("imagedeck", "0008_deckimagefiler"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='deckimagefiler',
-            name='filer_image',
-            field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='deckimagefiler', to=settings.FILER_IMAGE_MODEL),
+            model_name="deckimagefiler",
+            name="filer_image",
+            field=models.OneToOneField(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="deckimagefiler",
+                to=settings.FILER_IMAGE_MODEL,
+            ),
         ),
     ]

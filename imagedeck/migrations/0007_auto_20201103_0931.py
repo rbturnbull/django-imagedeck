@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('imagedeck', '0006_deckmembership_primary'),
+        ("imagedeck", "0006_deckmembership_primary"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='deckmembership',
-            options={'ordering': ['rank']},
+            name="deckmembership",
+            options={"ordering": ["rank"]},
         ),
     ]

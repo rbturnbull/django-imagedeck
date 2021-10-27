@@ -9,20 +9,36 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.FILER_IMAGE_MODEL),
-        ('imagedeck', '0007_auto_20201103_0931'),
+        ("imagedeck", "0007_auto_20201103_0931"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='DeckImageFiler',
+            name="DeckImageFiler",
             fields=[
-                ('deckimagebase_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='imagedeck.DeckImageBase')),
-                ('filer_image', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to=settings.FILER_IMAGE_MODEL)),
+                (
+                    "deckimagebase_ptr",
+                    models.OneToOneField(
+                        auto_created=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        parent_link=True,
+                        primary_key=True,
+                        serialize=False,
+                        to="imagedeck.DeckImageBase",
+                    ),
+                ),
+                (
+                    "filer_image",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.FILER_IMAGE_MODEL,
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
-                'base_manager_name': 'objects',
+                "abstract": False,
+                "base_manager_name": "objects",
             },
-            bases=('imagedeck.deckimagebase',),
+            bases=("imagedeck.deckimagebase",),
         ),
     ]

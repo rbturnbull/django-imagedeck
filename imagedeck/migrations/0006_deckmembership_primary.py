@@ -6,13 +6,16 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('imagedeck', '0005_auto_20201102_1555'),
+        ("imagedeck", "0005_auto_20201102_1555"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='deckmembership',
-            name='primary',
-            field=models.BooleanField(default=False, help_text='Whether or not this image should be conisdered the primary image for the deck.'),
+            model_name="deckmembership",
+            name="primary",
+            field=models.BooleanField(
+                default=False,
+                help_text="Whether or not this image should be conisdered the primary image for the deck.",
+            ),
         ),
     ]
