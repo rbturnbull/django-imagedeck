@@ -290,6 +290,16 @@ class DeckIIIF(DeckBase):
         if self.images.count() == 0 and self.manifest_url:
             self.images_from_manifest()
 
+    def split(self, width_pct: int=50, rtl=False):
+        new_deck = Deck.objects.create(
+            name=f"{self.name} split width {width_pct}",
+        )
+        for image in self.images_ordered():
+            new_images = image.split(width_pct=width_pct, rtl=rtl)
+            for new_image in new_images:
+                new_deck.add_image(new_image)
+        return new_deck
+
 
 class DeckImageBase(PolymorphicModel):
     licence = models.ForeignKey(DeckLicence, on_delete=models.SET_DEFAULT, default=None, null=True, blank=True)
@@ -460,11 +470,13 @@ class DeckImageIIIF(DeckImageBase):
     base_url = models.URLField(max_length=511)
     width = models.PositiveIntegerField(default=0, blank=True)
     height = models.PositiveIntegerField(default=0, blank=True)
+    region = models.CharField(max_length=255, default="full", help_text="A way to crop the region of an image. In the form of 'full', 'x,y,w,h' or 'pct:x,y,w,h'.")
 
     def __str__(self):
         return self.base_url
 
-    def iiif_url(self, region="full", size="full", rotation="0", quality="default", format="jpg"):
+    def iiif_url(self, region=None, size="full", rotation="0", quality="default", format="jpg"):
+        region = region or self.region
         return f"{self.base_url}/{region}/{size}/{rotation}/{quality}.{format}"
 
     def url(self, width=None, height=None):
@@ -512,6 +524,33 @@ class DeckImageIIIF(DeckImageBase):
     def thumbnail_dimensions(self):
         width = imagedeck_settings.IMAGEDECK_THUMBNAIL_WIDTH or 250
         return width, None
+
+    def split(self, width_pct: int=50, rtl=False):
+        """ 
+        Creates two new IIIF images.
+        
+        Useful for imgaes of an open page spread that needs to be divided.
+
+        Returns a list of two DeckImageIIIF objects.
+        """
+        regions = (
+            f"pct:0,0,{width_pct},100",
+            f"pct:{100-width_pct},0,100,100",
+        )
+        if rtl:
+            regions = (regions[1], regions[0])
+        
+        result = []
+        for region in regions:
+            width = int(self.width*width_pct*100) if self.width else self.width
+            image, _ = type(self).objects.update_or_create(
+                base_url=self.base_url,
+                width=width,
+                height=self.height,
+                region=region,
+            )
+            result.append(image)
+        return result
 
 
 class DeckMembership(models.Model):

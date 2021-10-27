@@ -3,7 +3,9 @@ name = "django-imagedeck"
 version = "0.3.2"
 description = "A package to seamlessly group different sorts of images into groups."
 authors = ["Robert Turnbull <robert.turnbull@unimelb.edu.au>"]
-license = "Apache 2.0"
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://gitlab.unimelb.edu.au/rturnbull/django-imagedeck"
 packages = [
     { include = "imagedeck" },
 ]
