@@ -24,9 +24,9 @@ class DeckTest(TestCase):
             name="DeckGallica", base_url="http://www.example.com"
         )
 
-        self.assertEquals(DeckBase.objects.count(), 3)
-        self.assertEquals(Deck.objects.count(), 1)
-        self.assertEquals(DeckGallica.objects.count(), 1)
+        assert DeckBase.objects.count() == 3
+        assert Deck.objects.count() == 1
+        assert DeckGallica.objects.count() == 1
 
 
 class ImageDeckModelTest(TestCase):
@@ -35,11 +35,11 @@ class ImageDeckModelTest(TestCase):
 
     def test_get_imagedeck(self):
         imagedeck = self.model.get_imagedeck()
-        self.assertEquals(str(imagedeck), "ImageDeckModel object (1)")
-        self.assertEquals(type(imagedeck), Deck)
+        assert str(imagedeck) == "ImageDeckModel object (1)"
+        assert type(imagedeck) == Deck
 
         model2 = ImageDeckModel.objects.get(pk=self.model.pk)
-        self.assertEquals(model2.imagedeck.pk, imagedeck.pk)
+        assert model2.imagedeck.pk == imagedeck.pk
 
 
 class DeckImageIIIFTest(TestCase):

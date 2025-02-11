@@ -1,5 +1,5 @@
 from django.contrib import admin
-from adminsortable2.admin import SortableInlineAdminMixin
+from adminsortable2.admin import SortableInlineAdminMixin, SortableAdminBase
 from polymorphic.admin import (
     PolymorphicParentModelAdmin,
     PolymorphicChildModelAdmin,
@@ -31,17 +31,17 @@ class DeckBaseChildAdmin(PolymorphicChildModelAdmin):
 
 
 @admin.register(Deck)
-class DeckAdmin(DeckBaseChildAdmin):
+class DeckAdmin(SortableAdminBase, DeckBaseChildAdmin):
     base_model = Deck
 
 
 @admin.register(DeckGallica)
-class DeckGallicaAdmin(DeckBaseChildAdmin):
+class DeckGallicaAdmin(SortableAdminBase, DeckBaseChildAdmin):
     base_model = DeckGallica
 
 
 @admin.register(DeckIIIF)
-class DeckIIIFAdmin(DeckBaseChildAdmin):
+class DeckIIIFAdmin(SortableAdminBase, DeckBaseChildAdmin):
     base_model = DeckIIIF
 
 
